@@ -182,6 +182,13 @@ func_b(args_b)
 
                 kwargs["type"] = arg_types[0]
                 kwargs["nargs"] = "+" if type_origin is NonEmptyList else "*"
+            elif type_origin is tuple or type_origin is Tuple:
+                arg_types = get_args(arg_type)
+                if len(set(arg_types)) != 1:
+                    raise NotImplementedError("Tuple with different types not implemented")
+
+                kwargs["type"] = arg_types[0]
+                kwargs["nargs"] = len(arg_types)
             else:
                 raise NotImplementedError(type_origin)
 
@@ -231,6 +238,7 @@ if __name__ == "__main__":
     class ArgsB(TypedNamespace):
         b: bool = False
         d: str = dataclasses.field(default=REQUIRED_ARG, metadata={"metavar": "REQ_D"})
+        e: Tuple[int, int] = dataclasses.field(default=(1, 2), metadata=dict(help="help for e."))
 
     @dataclasses.dataclass
     class Args(ArgsA, ArgsB):
@@ -240,7 +248,7 @@ if __name__ == "__main__":
         print("func a", args.a, args.c)
 
     def func_b(args: ArgsB):
-        print("func b", args.b, args.d)
+        print("func b", args.b, args.d, args.e)
 
     parser = Args.get_parser_grouped_by_parents()
     parsed_args = parser.parse_args()
