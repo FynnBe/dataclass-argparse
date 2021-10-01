@@ -36,7 +36,7 @@ test:
 #    - pytest .
 
 about:
-  home: https://github.com/fynnbe/dataclass_argparse
+  home: https://github.com/fynnbe/dataclass-argparse
   summary: argparse with a type annotated namespace dataclass
   license: MIT
   license_file: LICENSE
