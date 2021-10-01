@@ -3,7 +3,7 @@
 from dataclasses import dataclass, field
 from typing import Tuple
 
-from typed_argparse import NonEmptyList, TypedNamespace
+from dataclass_argparse import NonEmptyList, TypedNamespace
 
 
 @dataclass

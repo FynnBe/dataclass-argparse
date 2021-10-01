@@ -29,7 +29,7 @@ build:
 
 test:
   imports:
-    - typed_argparse
+    - dataclass_argparse
 #  source_files:
 #    - tests
 #  requires:
@@ -40,7 +40,7 @@ test:
 #    - pytest .
 
 about:
-  home: https://github.com/fynnbe/typed_argparse
+  home: https://github.com/fynnbe/dataclass_argparse
   summary: argparse with a type annotated namespace dataclass
   license: MIT
   license_file: LICENSE
