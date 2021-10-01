@@ -1,4 +1,4 @@
-# typed-argparse
+# dataclass-argparse
 Define command line arguments as type annotated namespace dataclasses.
 
 Advantages:

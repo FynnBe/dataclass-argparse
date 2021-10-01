@@ -1,4 +1,4 @@
-name: Test and build typed-argparse
+name: Test and build dataclass-argparse
 
 on:
   push:

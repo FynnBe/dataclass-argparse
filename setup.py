@@ -11,12 +11,12 @@ VERSION = json.loads(VERSION_FILE.read_text(encoding="utf-8"))["version"]
 
 
 setup(
-    name="typed-argparse",
+    name="dataclass-argparse",
     version=VERSION,
     description="argparse with a type annotated namespace dataclass",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://github.com/fynnbe/typed-argparse",
+    url="https://github.com/fynnbe/dataclass-argparse",
     author="Fynn Beuttenmüller",
     classifiers=[  # Optional
         "Development Status :: 3 - Alpha",
@@ -29,7 +29,7 @@ setup(
     extras_require={"test": ["mypy"], "dev": ["pre-commit"]},
     include_package_data=True,
     project_urls={  # Optional
-        "Bug Reports": "https://github.com/fynnbe/typed-argparse/issues",
-        "Source": "https://github.com/fynnbe/typed-argparse",
+        "Bug Reports": "https://github.com/fynnbe/dataclass-argparse/issues",
+        "Source": "https://github.com/fynnbe/dataclass-argparse",
     },
 )
