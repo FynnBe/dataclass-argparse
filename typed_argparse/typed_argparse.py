@@ -1,22 +1,29 @@
 import argparse
 import dataclasses
-from typing import Callable, ClassVar, Generic, List, Optional, Sequence, Tuple, Type, TypeVar
+from argparse import _ArgumentGroup
+from typing import Any, Callable, ClassVar, Dict, Generic, List, Optional, Sequence, Tuple, Type, TypeVar, Union
+
+try:
+    from typing import Annotated  # type: ignore
+except ImportError:
+    from typing_extensions import Annotated
 
 try:
     from typing import get_args, get_origin
 except ImportError:
+    from typing_extensions import Annotated  # type: ignore
 
-    def get_args(obj):
+    def get_args(obj):  # type: ignore
         return obj.__args__
 
-    def get_origin(obj):
+    def get_origin(obj):  # type: ignore
         try:
             return obj.__parameters__ or None
         except AttributeError:
             return None
 
 
-NamespaceType = TypeVar("NamespaceType")
+NamespaceType = TypeVar("NamespaceType", bound=argparse.Namespace)
 
 
 class TypedArgumentParser(argparse.ArgumentParser, Generic[NamespaceType]):
@@ -24,116 +31,55 @@ class TypedArgumentParser(argparse.ArgumentParser, Generic[NamespaceType]):
         self.name_space_class = name_space_class
         super().__init__(*super_args, **super_kwargs)
 
-    def parse_args(self, args=None, namespace: Optional[NamespaceType] = None) -> NamespaceType:
+    def get_required_kwargs_placeholder(self):
+        return {
+            f.name: None
+            for f in dataclasses.fields(self.name_space_class)
+            if f.default is dataclasses.MISSING and f.default_factory is dataclasses.MISSING
+        }
+
+    def parse_args(  # type: ignore
+        self, args: Optional[Sequence[str]] = None, namespace: Optional[NamespaceType] = None
+    ) -> NamespaceType:
         if namespace is None:
-            namespace = self.name_space_class()
+            namespace = self.name_space_class(**self.get_required_kwargs_placeholder())
 
         return super().parse_args(args, namespace)
 
-    def parse_known_args(
+    def parse_known_args(  # type: ignore
         self, args=None, namespace: Optional[NamespaceType] = None
     ) -> Tuple[NamespaceType, Optional[Sequence[str]]]:
         if namespace is None:
-            namespace = self.name_space_class()
+            namespace = self.name_space_class(**self.get_required_kwargs_placeholder())
 
-        return super().parse_known_args(args, namespace)
+        return super().parse_known_args(args, namespace)  # type: ignore
 
 
 T = TypeVar("T")
 
 
-class NonEmptyList(List[T]):
-    pass
+# NonEmptyList = NewType("NonEmptyList", List[T])
+# class NonEmptyList(Sized, Generic[T]):
+#     pass
+@dataclasses.dataclass(frozen=True)
+class MinLen:
+    value: int
 
 
-class REQUIRED_ARG:
+NonEmptyList = Annotated[List[T], MinLen(1)]
+
+
+class REQUIRED:
     pass
 
 
 @dataclasses.dataclass
-class TypedNamespace:
+class TypedNamespace(argparse.Namespace):
     """a type annotated namespace.
-Define command line arguments in an inheriting class `MyTypedNamespace(TypeNamedSpace)`
-and use the `TypedArgumentParser` returned by `MyTypedNamespace.get_parser()`
-    
-example 1: group arguments with inheritance
-```
-@dataclasses.dataclass
-class ArgsA(TypedNamespace):
-    a: int = 1
-    c: NonEmptyList[int] = dataclasses.field(default_factory=lambda: [1], metadata={"help": "help for c."})
 
-@dataclasses.dataclass
-class ArgsB(TypedNamespace):
-    b: bool = False
-    d: str = dataclasses.field(default=REQUIRED_ARG, metadata={"metavar": "REQ_D"})
-
-@dataclasses.dataclass
-class Args(ArgsA, ArgsB):
-    pass
-
-def func_a(args: ArgsA):
-    print("func a", args.a, args.c)
-
-def func_b(args: ArgsB):
-    print("func b", args.b, args.d)
-
-parser = Args.get_parser_grouped_by_parents()
-parsed_args = parser.parse_args()
-
-parser.print_help()
-
-func_a(parsed_args)
-func_b(parsed_args)
-```
-
-example 2: group manually and parse argument groups separately
-```
-@dataclasses.dataclass
-class ArgsA(TypedNamespace):
-    a: ClassVar[int] = 1
-    c: NonEmptyList[int] = dataclasses.field(default_factory=lambda: [1], metadata={"help": "help for c."})
-
-
-parser_a = ArgsA.get_parser("group A")
-
-
-def func_a(args: ArgsA):
-    print("func a", args.a, args.c)
-
-
-@dataclasses.dataclass
-class ArgsB(TypedNamespace):
-    b: bool = False
-    d: str = dataclasses.field(default=REQUIRED_ARG, metadata={"metavar": "REQ_D"})
-
-
-parser_b = ArgsB.get_parser("group B")
-
-
-def func_b(args: ArgsB):
-    print("func b", args.b, args.d)
-
-
-joint_parser = argparse.ArgumentParser(parents=[parser_a, parser_b], add_help=False)
-# arguments used directly (not part of a typed namespace groups)
-general_args = joint_parser.add_argument_group("General")
-general_args.add_argument("-h", "--help", action="help", help="show this help message and exit")
-
-
-joint_parser.parse_args()  # show help/complain about missing/unknown args, but ignore parse args
-
-# parse args
-args_a, unused_args = parser_a.parse_known_args()
-args_b, unused_args = parser_b.parse_known_args(unused_args)
-
-joint_parser.print_help()
-
-func_a(args_a)
-func_b(args_b)
-
-```
-"""
+    Define command line arguments in a derived class `MyTypedNamespace(TypeNamedSpace)`
+    and use the `TypedArgumentParser` returned by `MyTypedNamespace.get_parser()`
+    """
 
     @classmethod
     def get_parser(
@@ -141,7 +87,7 @@ func_b(args_b)
     ) -> TypedArgumentParser[NamespaceType]:
         ret_parser = TypedArgumentParser(name_space_class=cls, add_help=add_help)
         if group_title is None:
-            group = ret_parser
+            group: Union[TypedArgumentParser, _ArgumentGroup] = ret_parser
         else:
             group = ret_parser.add_argument_group(title=group_title)
 
@@ -157,12 +103,12 @@ func_b(args_b)
             if type_origin is ClassVar:
                 continue
 
-            try:
-                default = field.default_factory()
-            except TypeError:
+            if field.default_factory is dataclasses.MISSING:  # type: ignore
                 default = field.default
+            else:
+                default = field.default_factory()  # type: ignore
 
-            kwargs = {}
+            kwargs: Dict[str, Any] = {}
             help_comment = str(field.metadata.get("help", ""))
             if help_comment:
                 kwargs["help"] = help_comment
@@ -174,7 +120,11 @@ func_b(args_b)
             if type_origin is None:
                 kwargs["type"] = arg_type
             elif (
-                type_origin is list or type_origin is NonEmptyList or type_origin is List
+                type_origin is list
+                or type_origin is NonEmptyList
+                or type_origin is List
+                or get_origin(type_origin) is list
+                or get_origin(type_origin) is List
             ):  # List case only required for py<3.8
                 arg_types = get_args(arg_type)
                 if len(arg_types) != 1:
@@ -192,7 +142,7 @@ func_b(args_b)
             else:
                 raise NotImplementedError(type_origin)
 
-            if default is REQUIRED_ARG:
+            if default is dataclasses.MISSING:
                 kwargs["required"] = True
             elif isinstance(default, bool):
                 kwargs["action"] = "store_false" if default else "store_true"
@@ -225,35 +175,3 @@ func_b(args_b)
             help_group.add_argument("-h", "--help", action="help", help="show this help message and exit")
 
         return ret_parser
-
-
-if __name__ == "__main__":
-
-    @dataclasses.dataclass
-    class ArgsA(TypedNamespace):
-        a: int = 1
-        c: NonEmptyList[int] = dataclasses.field(default_factory=lambda: [1], metadata={"help": "help for c."})
-
-    @dataclasses.dataclass
-    class ArgsB(TypedNamespace):
-        b: bool = False
-        d: str = dataclasses.field(default=REQUIRED_ARG, metadata={"metavar": "REQ_D"})
-        e: Tuple[int, int] = dataclasses.field(default=(1, 2), metadata=dict(help="help for e."))
-
-    @dataclasses.dataclass
-    class Args(ArgsA, ArgsB):
-        pass
-
-    def func_a(args: ArgsA):
-        print("func a", args.a, args.c)
-
-    def func_b(args: ArgsB):
-        print("func b", args.b, args.d, args.e)
-
-    parser = Args.get_parser_grouped_by_parents()
-    parsed_args = parser.parse_args()
-
-    parser.print_help()
-
-    func_a(parsed_args)
-    func_b(parsed_args)
