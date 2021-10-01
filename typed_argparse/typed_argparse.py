@@ -6,7 +6,7 @@ from typing import Any, Callable, ClassVar, Dict, Generic, List, Optional, Seque
 try:
     from typing import Annotated  # type: ignore
 except ImportError:
-    from typing_extensions import Annotated
+    from typing_extensions import Annotated  # type: ignore
 
 try:
     from typing import get_args, get_origin
