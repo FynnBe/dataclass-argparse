@@ -139,6 +139,22 @@ class TypedNamespace(argparse.Namespace):
 
                 kwargs["type"] = arg_types[0]
                 kwargs["nargs"] = len(arg_types)
+            elif type_origin is Union:
+                options = get_args(arg_type)
+                if any(get_origin(opt) not in (str, int, float, None) for opt in options):
+                    raise NotImplementedError(f"Union[{options}]")
+
+                def union(value):
+                    for opt in options:
+                        if issubclass(opt, (str, int, float)):
+                            try:
+                                return opt(value)
+                            except:
+                                pass
+
+                    raise TypeError(type(value))
+
+                kwargs["type"] = union
             else:
                 raise NotImplementedError(type_origin)
 
